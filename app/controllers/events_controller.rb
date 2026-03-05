@@ -72,9 +72,12 @@ class EventsController < ApplicationController
   end
 
   def fetch_upcoming_events
-    events = [Workshop.includes(:chapter, :sponsors).upcoming.joins(:chapter).merge(Chapter.active)]
-    events << Meeting.upcoming.all
-    events << Event.upcoming.includes(:venue, :sponsors, :sponsorships).all
+    events = [Workshop.includes(:chapter, :sponsors, :host, :permissions)
+                      .upcoming
+                      .joins(:chapter)
+                      .merge(Chapter.active)]
+    events << Meeting.upcoming.includes(:venue, :permissions).all
+    events << Event.upcoming.includes(:venue, :sponsors, :sponsorships, :permissions).all
 
     sorted = events.compact.flatten.sort_by(&:date_and_time)
     pagy, paginated = pagy(sorted, items: 20)
@@ -86,9 +89,12 @@ class EventsController < ApplicationController
   end
 
   def fetch_past_events
-    events = [Workshop.past.includes(:chapter, :sponsors).joins(:chapter).merge(Chapter.active)]
-    events << Meeting.past.all
-    events << Event.past.includes(:venue, :sponsors, :sponsorships).all
+    events = [Workshop.includes(:chapter, :sponsors, :host, :permissions)
+                      .past
+                      .joins(:chapter)
+                      .merge(Chapter.active)]
+    events << Meeting.past.includes(:venue, :permissions).all
+    events << Event.past.includes(:venue, :sponsors, :sponsorships, :permissions).all
 
     sorted = events.compact.flatten.sort_by(&:date_and_time).reverse
     pagy, paginated = pagy(sorted, items: 20)
