@@ -43,7 +43,7 @@ class EventsController < ApplicationController
     set_event
     ticket = Services::Ticket.new(request, params)
     member = Member.find_by(email: ticket.email)
-    invitation = member.invitations.where(event: @event, role: 'Student').try(:first)
+    invitation = member.invitations.where(event: @event, role: 'Student').first
     invitation ||= Invitation.create(event: @event, member: member, role: 'Student')
 
     invitation.update(attending: true)
