@@ -40,5 +40,19 @@ RSpec.feature 'event listing', type: :feature do
       visit past_events_path
       expect(page).to have_selector('.card', count: 20)
     end
+
+    scenario 'past meetings paginate at 20 per page' do
+      Fabricate.times(22, :meeting, date_and_time: 2.weeks.ago)
+
+      visit past_events_path
+      expect(page).to have_selector('.card', count: 20)
+    end
+
+    scenario 'upcoming meetings paginate at 20 per page' do
+      Fabricate.times(22, :meeting, date_and_time: 2.weeks.from_now)
+
+      visit upcoming_events_path
+      expect(page).to have_selector('.card', count: 20)
+    end
   end
 end
