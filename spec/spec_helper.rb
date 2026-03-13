@@ -1,11 +1,12 @@
 require 'simplecov'
 require 'simplecov-lcov'
 require 'shoulda/matchers'
+require 'webmock/rspec'
 
 # Fix incompatibility of simplecov-lcov with older versions of simplecov that are not expresses in its gemspec.
 # https://github.com/fortissimo1997/simplecov-lcov/pull/25
 
-if !SimpleCov.respond_to?(:branch_coverage)
+unless SimpleCov.respond_to?(:branch_coverage)
   module SimpleCov
     def self.branch_coverage?
       false
@@ -21,28 +22,47 @@ end
 SimpleCov.formatters = SimpleCov::Formatter::MultiFormatter.new(
   [
     SimpleCov::Formatter::HTMLFormatter,
-    SimpleCov::Formatter::LcovFormatter,
+    SimpleCov::Formatter::LcovFormatter
   ]
 )
 
 SimpleCov.start do
   add_filter 'spec/'
+
+  # Support parallel test execution
+  # In CI: Use CI_NODE_INDEX (0, 1, 2, 3) set by GitHub Actions matrix
+  # Locally: Use TEST_ENV_NUMBER ('', '2', '3', '4') set by parallel_tests
+  if ENV['CI_NODE_INDEX']
+    command_name "RSpec-#{ENV['CI_NODE_INDEX']}"
+    use_merging true
+    merge_timeout 3600
+  elsif ENV.key?('TEST_ENV_NUMBER')
+    # TEST_ENV_NUMBER is '' for first process, '2', '3', etc. for others
+    suffix = ENV['TEST_ENV_NUMBER'].empty? ? '1' : ENV['TEST_ENV_NUMBER']
+    command_name "RSpec-#{suffix}"
+    use_merging true
+    merge_timeout 3600
+  end
 end
 
 ENV['RAILS_ENV'] ||= 'test'
-require File.expand_path('../../config/environment', __FILE__)
+require File.expand_path('../config/environment', __dir__)
 require 'rspec/rails'
+
+# Block all external HTTP requests in tests; allows localhost for Capybara
+WebMock.disable_net_connect!(allow_localhost: true)
 
 Dir[Rails.root.join('spec/support/**/*.rb')].each { |f| require f }
 
-ActiveRecord::Migration.check_pending! if defined?(ActiveRecord::Migration)
+ActiveRecord::Migration.check_all_pending! if defined?(ActiveRecord::Migration)
 
 RSpec.configure do |config|
   config.include ApplicationHelper
   config.include LoginHelpers
   config.include ActiveSupport::Testing::TimeHelpers
   config.include SelectFromChosen, type: :feature
-  config.use_transactional_fixtures = false
+  config.infer_spec_type_from_file_location!
+  config.use_transactional_fixtures = true
   config.infer_base_class_for_anonymous_controllers = false
   config.order = 'random'
   config.expect_with :rspec do |c|
@@ -51,24 +71,16 @@ RSpec.configure do |config|
 
   # See https://github.com/DatabaseCleaner/database_cleaner#rspec-with-capybara-example
   config.before(:suite) do
-    if config.use_transactional_fixtures?
-      raise(<<-MSG)
-        Delete line `config.use_transactional_fixtures = true` from spec_helper.rb
-        (or set it to false) to prevent uncommitted transactions being used in
-        JavaScript-dependent specs.
-
-        During testing, the app-under-test that the browser driver connects to
-        uses a different database connection to the database connection used by
-        the spec. The app's database connection would not be able to access
-        uncommitted transaction data setup over the spec's database connection.
-      MSG
-    end
-
     DatabaseCleaner.clean_with(:truncation)
     DatabaseCleaner.strategy = :deletion
   end
 
-  config.before(:each) do
+  config.before do
+    # Stub all Flodesk API endpoints globally so tests don't make external requests
+    # when fabricating members (which trigger Subscription.after_create callback)
+    WebMock.stub_request(:any, /api\.flodesk\.com/)
+           .to_return(status: 200, body: '{"status":"active","segments":[]}', headers: { 'Content-Type' => 'application/json' })
+
     DatabaseCleaner.strategy = :transaction
   end
 
@@ -76,24 +88,23 @@ RSpec.configure do |config|
   # under test that does *not* share a database connection with the
   # specs, so use truncation strategy. This config is order dependent
   # and must be BELOW the main `config.before(:each)` configuration
-  config.before(:each, js: true) do
+  config.before(:each, :js) do
     DatabaseCleaner.strategy = :truncation
   end
 
   # This block must be here, do not combine with the other `config.before(:each)` block.
   # This makes it so Capybara can see the database.
-  config.before(:each) do
+  config.before do
     DatabaseCleaner.start
   end
 
-  config.after(:each) do
+  config.after do
     DatabaseCleaner.clean
   end
 
-
   config.after do |example|
     # Take a screenshot if the example failed and JavaScript is enabled
-    if example.exception && defined?(page) && Capybara.current_driver == :chrome
+    if example.exception && defined?(page) && Capybara.current_driver == :playwright
       # Get the filename and line number of the failing spec
       location = example.metadata[:location]
       filename, line_number = location.split(':')
@@ -102,14 +113,14 @@ RSpec.configure do |config|
       screenshot_filename = "#{filename}:#{line_number}.png"
 
       # Save the screenshot using the custom filename
-      page.save_screenshot(screenshot_filename, full: true)
+      page.save_screenshot(screenshot_filename)
     end
   end
 
   config.example_status_persistence_file_path = 'tmp/spec_failures'
 
   if Bullet.enable?
-    config.around(:each) do |example|
+    config.around do |example|
       Bullet.start_request
       example.run
       Bullet.perform_out_of_channel_notifications if Bullet.notification?

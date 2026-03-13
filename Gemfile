@@ -65,6 +65,7 @@ gem 'stimulus-rails'
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem 'jbuilder'
 gem 'public_activity'
+gem 'view_component'
 
 group :development do
   gem 'better_errors'
