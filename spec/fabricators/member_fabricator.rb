@@ -4,7 +4,6 @@ Fabricator(:member) do
   surname { Faker::Name.last_name }
   email { Faker::Internet.email }
   about_you { Faker::Lorem.sentence }
-  twitter { Faker::Name.first_name }
   auth_services(count: 1) { Fabricate(:auth_service) }
   accepted_toc_at { Time.zone.now }
 end
@@ -14,11 +13,11 @@ Fabricator(:member_without_toc, from: :member) do
 end
 
 Fabricator(:student, from: :member) do
-  groups(count: 2) { |attrs, i| Fabricate(:students) }
+  groups(count: 2) { |_attrs, _i| Fabricate(:students) }
 end
 
 Fabricator(:coach, from: :member) do
-  groups(count: 2) { |attrs, i| Fabricate(:coaches) }
+  groups(count: 2) { |_attrs, _i| Fabricate(:coaches) }
 end
 
 Fabricator(:banned_member, from: :member) do
@@ -27,7 +26,7 @@ end
 
 Fabricator(:banned_student, from: :member) do
   bans(count: 1) { Fabricate(:ban) }
-  groups(count: 1) { |attrs, i| Fabricate(:students) }
+  groups(count: 1) { |_attrs, _i| Fabricate(:students) }
 end
 
 Fabricator(:chapter_organiser, from: :member) do

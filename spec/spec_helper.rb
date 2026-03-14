@@ -52,7 +52,7 @@ require 'rspec/rails'
 # Block all external HTTP requests in tests; allows localhost for Capybara
 WebMock.disable_net_connect!(allow_localhost: true)
 
-Dir[Rails.root.join('spec/support/**/*.rb')].each { |f| require f }
+Rails.root.glob('spec/support/**/*.rb').each { |f| require f }
 
 ActiveRecord::Migration.check_all_pending! if defined?(ActiveRecord::Migration)
 
@@ -61,8 +61,10 @@ RSpec.configure do |config|
   config.include LoginHelpers
   config.include ActiveSupport::Testing::TimeHelpers
   config.include SelectFromChosen, type: :feature
+  config.use_transactional_fixtures = false
+  config.file_fixture_path = "#{Rails.root.join('spec/fixtures')}"
+  config.fixture_paths = ["#{Rails.root.join('spec/fixtures')}"]
   config.infer_spec_type_from_file_location!
-  config.use_transactional_fixtures = true
   config.infer_base_class_for_anonymous_controllers = false
   config.order = 'random'
   config.expect_with :rspec do |c|
