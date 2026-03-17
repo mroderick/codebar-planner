@@ -8,7 +8,7 @@ class ContactPreferencesController < ApplicationController
   end
 
   def update
-    contact = Contact.find_by(token: contact_preferences[:token])
+    contact = Contact.find_by!(token: contact_preferences[:token])
     contact.update(mailing_list_consent: mailing_list_consent)
     audit_contact_subscription(contact)
 
@@ -23,7 +23,7 @@ class ContactPreferencesController < ApplicationController
   end
 
   def contact_preferences
-    params.expect(contact: [:token, :mailing_list_consent])
+    params.expect(contact: %i[token mailing_list_consent])
   end
 
   def mailing_list_consent

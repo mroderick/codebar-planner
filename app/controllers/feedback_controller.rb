@@ -19,7 +19,7 @@ class FeedbackController < ApplicationController
 
       redirect_to root_path
     else
-      feedback_request = FeedbackRequest.find_by(token: params[:id], submited: false)
+      feedback_request = FeedbackRequest.find_by!(token: params[:id], submited: false)
       set_coaches(feedback_request.workshop)
 
       @workshop = feedback_request.workshop
@@ -34,12 +34,12 @@ class FeedbackController < ApplicationController
   private
 
   def feedback_params
-    params.expect(feedback: [:coach_id, :tutorial_id, :request, :rating, :suggestions])
+    params.expect(feedback: %i[coach_id tutorial_id request rating suggestions])
   end
 
   def set_coaches(workshop)
     @coaches = workshop.invitations.to_coaches.accepted_or_attended
-      .order(Arel.sql('attended DESC NULLS LAST'))
-      .map(&:member)
+                       .order(Arel.sql('attended DESC NULLS LAST'))
+                       .map(&:member)
   end
 end
